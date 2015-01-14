@@ -1,0 +1,601 @@
+#include "_lrf.h"
+#include "lrf.h"
+
+int radian_to_step(double target_angle, int lrf_data_max)
+{
+  static double deg = 0;
+  static int step = 0; 
+  deg = target_angle*180/PI;
+  step =  (int)((deg + 45)*(lrf_data_max-1)/270);
+  if(step < 0)
+    step = 0;
+  else if(step > 1080)
+    step = 1080;
+  else
+    ;
+  return step;
+}
+/* 正面を0度として右がマイナス、左がプラス。 */
+double step_to_radian(int step, int lrf_data_max)
+{
+  static double deg = 0;
+  static double rad = 0;
+  deg = (270 * step)/(lrf_data_max -1) - 135;
+  if(deg > 135)
+    deg = 135;
+  else if(deg < -135)
+    deg = -135;
+  else;
+
+  rad = deg*PI/180;
+  return rad;
+}
+int check_lrf_thres(long* lrfdata, CvPoint2D32f* lrfdataxy,int lrf_data_max, int maxrange)
+{
+  static int i = 0, cnt = 0;
+  for(i=0; i<181;i++){
+    lrfdata[i] = 0;
+  }
+  for(i=901; i<lrf_data_max; i++){
+    lrfdata[i] = 0;
+  }
+  /* for(i=0; i<lrf_data_max; i++){ */
+  /*   if(lrfdata[i] > 5000) */
+  /*     lrfdata[i] = 0; */
+  /* } */
+  for(i=0; i<lrf_data_max; i++){
+    if(maxrange <= lrfdata[i] || lrfdata[i] <= 23){
+      lrfdata[i] = 0;
+      lrfdataxy[i].y = 0;
+      lrfdataxy[i].x = 0;
+      cnt++;
+    }else{
+      ;
+    }
+  }
+  for(i=0; i<lrf_data_max; i++){
+    if(-SIDERANGE < lrfdataxy[i].y && lrfdataxy[i].y < SIDERANGE)
+      if(23 < lrfdataxy[i].x && lrfdataxy[i].x < 650)
+	return -1;		/* Emergency */
+  }
+  if(cnt == lrf_data_max)
+    return 0;
+  else 
+    return 1;
+}
+
+int find_obstacle(long* lrfdata, CvPoint2D32f* lrfdataxy, int lrf_data_max, double target_angle, int maxrange)
+{
+  static double distance = 0;
+  static int i = 0;
+  if(check_lrf_thres(lrfdata, lrfdataxy, lrf_data_max, maxrange) == 0){
+    return 0; //nai //all 10m ijou.
+  }else if(-0.175 <= target_angle && target_angle <= 0.175){ /* -10[deg] ~ +10[deg] */
+    for(i=0; i<lrf_data_max; i++){
+      if(((1-SIDERANGE) < lrfdataxy[i].x) && (lrfdataxy[i].x < (1+SIDERANGE))){
+	  if(lrfdata[i] != 0)
+	    return 1; //aru
+      }
+    }
+    return 0; //nai
+  }else{
+    for(i = 0; i<lrf_data_max; i++){
+      distance = ((tan(PI/2 + target_angle))*lrfdataxy[i].x - lrfdataxy[i].y)/sqrt(pow(tan(PI/2 + target_angle), 2) + 1);
+      if(distance < (SIDERANGE+1) && lrfdata[i] != 0)
+	return 1; //aru!!!!
+    }
+    return 0; //nai
+  }
+}
+
+int find_obstacle2(long* lrfdata, CvPoint2D32f* lrfdataxy, int lrf_data_max, double target_angle, int maxrange)
+{
+  static int i = 0;
+  static int j = 0;
+  static int ret = 0;
+  ret = check_lrf_thres(lrfdata, lrfdataxy, lrf_data_max, maxrange);
+  if(ret == 0){
+    return 0; //nai //all maxrange ijou.
+  }else if(ret == -1){
+    return -1;
+  }else{
+    for(i=0; i<lrf_data_max; i++){ /* rotate matrix */
+      lrfdataxy[i].x = lrfdataxy[i].x * cos(-target_angle) - lrfdataxy[i].y * sin(-target_angle);
+      lrfdataxy[i].y = lrfdataxy[i].x * sin(-target_angle) + lrfdataxy[i].y * cos(-target_angle);
+    }
+    for(i=0; i<lrf_data_max; i++){
+      if(-SIDERANGE < lrfdataxy[i].y && lrfdataxy[i].y < SIDERANGE)
+	if(0< lrfdataxy[i].x && lrfdataxy[i].x < maxrange){
+	  for(j=0; j<lrf_data_max; j++){	/* restore data */
+	    lrfdataxy[i].x = lrfdataxy[i].x * cos(target_angle) - lrfdataxy[i].y * sin(target_angle);
+	    lrfdataxy[i].y = lrfdataxy[i].x * sin(target_angle) + lrfdataxy[i].y * cos(target_angle);
+	  }
+	  return 1;
+	}
+    }
+    return 0;
+  }
+}
+
+double obstacle_avoidance(long* lrfdata, CvPoint2D32f* lrfdataxy, int lrf_data_max, double target_angle, int maxrange)
+{
+  static int i = 0, j = 0;
+  static double a, b, c = 0;	/* for the theorem of cosines */
+  static int ret = 0;
+  static int first_step = 0, last_step = 0;
+  static double temp_step[2];
+  static free_area area;
+  static double ret_angle = 0;
+  for(i=0; i<2; i++){
+    temp_step[i] = 0;
+  }
+  area.cnt = 0;
+  ret = find_obstacle2(lrfdata, lrfdataxy, lrf_data_max, target_angle, maxrange);
+  //printf("ret : %d\n",ret);
+  if(ret){
+    first_step = radian_to_step(target_angle, lrf_data_max);
+    if(first_step < 180)
+      first_step = 180;
+    last_step = radian_to_step(target_angle+PI, lrf_data_max);
+    if(last_step > 900)
+      last_step = 900;
+    if((lrfdata[first_step] == 0) || (lrfdata[first_step] > SIDERANGE))
+      lrfdata[first_step] = SIDERANGE;
+    if((lrfdata[last_step] == 0) || (lrfdata[last_step] > SIDERANGE))
+      lrfdata[last_step] = SIDERANGE;
+    for(i = first_step; i < last_step; i++){
+      if((lrfdata[i] != 0) && (lrfdata[i+1] == 0)){
+	for(j = i+1; j < last_step; j++){
+	  if((lrfdata[j] == 0) && (lrfdata[j+1] != 0)){
+	    temp_step[0] = j - i;
+	    b = lrfdata[i];
+	    c = lrfdata[j+1];
+	    if(b <= c)
+	      c = b;
+	    else
+	      b = c;
+	    a = sqrt(pow(b,2) + pow(c,2) -2*b*c*cos((temp_step[0]/4)*PI/180));
+	    if(a > COSINETHRESHOLD){
+	      if(temp_step[0] >= temp_step[1]){
+		temp_step[1] = temp_step[0];
+		area.cnt++;
+		area.first_step = i;
+		area.last_step = j;
+		area.first_range = lrfdata[i];
+		area.last_range = lrfdata[j+1];
+	      }
+	    }
+	    i = j+1;
+	    break;
+	  }
+	}
+      }
+    }
+    //    return (step_to_radian(area.first_step, lrf_data_max))*180/PI;
+    if(area.cnt == 0){
+      if(maxrange > LIMITMAXRANGE){
+	/* printf("再帰 %d\n",(int)maxrange); */
+	ret_angle = obstacle_avoidance(lrfdata, lrfdataxy, lrf_data_max, target_angle, int(maxrange*4/5));
+	return ret_angle;
+      }else{
+	/* printf("maxrange:%d\n",maxrange); */
+	return -360;//zannen
+      }
+    }else{
+      if(area.first_range < SIDELIMITRANGE-1 || area.last_range < SIDELIMITRANGE-1){
+	return -540;
+      }else{
+	ret_angle = area.first_step+temp_step[1]*(area.last_range/(area.first_range+area.last_range));
+	ret_angle = step_to_radian(ret_angle, lrf_data_max);
+	return ret_angle;
+      }
+    }
+  }else{
+    return target_angle;
+  }
+}
+
+void swap(free_area *x, free_area *y){
+  free_area temp = *x;
+  *x = *y;
+  *y = temp;
+}
+void sort_by_angleABS(free_area* data, int num)
+{
+  static int k = 0;
+  k =  num -1;
+  static int i = 0, j = 0;
+  while(k>=0){
+    for(i=1, j=-1; i<=k; i++){
+      if(data[i-1].angleABS > data[i].angleABS){
+	j = i -1;
+	swap(&data[i],&data[j]);
+      }
+    }
+    k=j;
+  }
+}
+
+double obstacle_avoidance2(long* lrfdata, CvPoint2D32f* lrfdataxy, int lrf_data_max, double target_angle, int maxrange, double nowangle)
+{
+  static int i = 0, j = 0, free_area_cnt = 0;
+  static double a, b, c = 0;	/* for the theorem of cosines */
+  static int ret = 0;
+  static int first_step = 0, last_step = 0;
+  static double temp_step[2];
+  static free_area area[2];
+  static double ret_angle = 0;
+  if(target_angle > 60*PI/180){
+    target_angle = 60*PI/180;
+  }else if(target_angle < -60*PI/180){
+    target_angle = -60*PI/180;
+  }else{
+    ;
+  }
+  for(i=0; i<2; i++){
+    temp_step[i] = 0;
+  }
+  area[1].angleABS = PI/2;
+  free_area_cnt = 0;
+
+  ret = find_obstacle2(lrfdata, lrfdataxy, lrf_data_max, target_angle, maxrange);
+  if(ret == 1){
+    first_step = radian_to_step(target_angle, lrf_data_max);
+    if(first_step < 180)
+      first_step = 180;
+    last_step = radian_to_step(target_angle+PI, lrf_data_max);
+    if(last_step > 900)
+      last_step = 900;
+    if(lrfdata[first_step] == 0)
+      lrfdata[first_step] = maxrange;
+    if(lrfdata[last_step] == 0)
+      lrfdata[last_step] = maxrange;
+    for(i = first_step; i < last_step; i++){
+      if((lrfdata[i] != 0) && (lrfdata[i+1] == 0)){
+	for(j = i+1; j < last_step; j++){
+	  if((lrfdata[j] == 0) && (lrfdata[j+1] != 0)){
+	    temp_step[0] = j - i;
+	    b = lrfdata[i];
+	    c = lrfdata[j+1];
+	    if(b <= c)
+	      c = b;
+	    else
+	      b = c;
+	    a = sqrt(pow(b,2) + pow(c,2) -2*b*c*cos((temp_step[0]/4)*PI/180));
+	    if(a > SIDERANGE*2){
+	      area[0].cnt = temp_step[0];
+	      area[0].first_step = i;
+	      area[0].last_step = j;
+	      area[0].first_range = lrfdata[i];
+	      area[0].last_range = lrfdata[j+1];
+	      area[0].angle = area[0].first_step + area[0].cnt*(area[0].last_range/(area[0].first_range+area[0].last_range));///2;
+	      area[0].angle = step_to_radian(area[0].angle, lrf_data_max);
+	      area[0].angleABS = fabs(target_angle - area[0].angle);
+	      free_area_cnt++;
+	      if(area[0].angleABS < area[1].angleABS){
+		area[1] = area[0];
+	      }
+	    }
+	    i = j+1;
+	    break;
+	  }
+	}
+      }
+    }
+    /* printf("free_area_cnt = %d\n",free_area_cnt); */
+    if(free_area_cnt == 0){
+      if(maxrange > LIMITMAXRANGE){
+	/* printf("再帰 %d\n",(int)maxrange); */
+	ret_angle = obstacle_avoidance2(lrfdata, lrfdataxy, lrf_data_max, target_angle, int(maxrange*4/5), nowangle);
+	return ret_angle;
+      }else{
+	return -360;//zannen
+      }
+    }else{	      	/* free_area_cnt > 1 */
+      /* printf("area[1].angle:%lf\n",area[1].angle*180/PI); */
+      return area[1].angle;
+    }
+  }else if(ret == -1){
+    return -720;
+  }else{
+    ret_angle = target_angle;
+    return target_angle;
+  }
+}
+
+int maxof(int* data){
+  int max = 0;
+  int i = 0;
+  max = data[0];
+  for(i=1;i<3;i++){
+    if(data[i] > max){
+      max = data[i];
+    }
+  }
+  for(i=0;i<3;i++){
+    if(data[i] == max){
+      return i+1;
+    }
+  }
+  return -1; /* error. */
+}
+
+int check_front_obstacle(long* lrfdata, CvPoint2D32f* lrfdataxy, int lrf_data_max)
+{
+  //static CvPoint2D32f last_lrfdataxy[1080];
+  static int obst_cnt = 0;
+  static int area[3] = {0};
+  static double ave_x = 0;
+  static int ave_cnt = 0;
+  static int flag = 0;
+  static int i = 0;
+  for(i=0;i<3;i++){
+    area[i]=0;
+  }
+  obst_cnt = 0;
+  if(flag == 0){
+    for(i=420;i<660;i++){	/* -60 --- +60 */
+      //last_lrfdataxy[i] = lrfdataxy[i];
+      if(lrfdata[i] < 23 || lrfdata[i] > 60000){
+	continue;
+      }else{
+	/* if(-SIDERANGE <= lrfdataxy[i].y || lrfdataxy[i].y <= SIDERANGE){ */
+	  ave_x += lrfdataxy[i].x;
+	  ave_cnt++;
+	/* } */
+      }
+    }
+    ave_x = ave_x/ave_cnt;
+    flag = 1;
+    return 0;
+  }else{
+    for(i=420; i<660; i++){
+      if(lrfdata[i] < 23 || lrfdata[i] > 60000){
+	continue;
+      }else{
+	/* if(-BOTTOM_LRF_SIDE_THRES <= lrfdataxy[i].y && lrfdataxy[i].y <= BOTTOM_LRF_SIDE_THRES){ */
+	/*   printf("lrfdataxy[%d].x == %lf\tlrfdataxy[%d].y == %lf\n",i,lrfdataxy[i].x,i,lrfdataxy[i].y); */
+	/*   printf("[abs]lrfdataxy[%d].x == %lf\n",i,fabs(lrfdataxy[i].x - ave_x)); */
+	/* } */
+	if(fabs(lrfdataxy[i].x - ave_x) > BOTTOM_LRF_THRES_LONG){
+	  if(-BOTTOM_LRF_SIDE_THRES <= lrfdataxy[i].y && lrfdataxy[i].y <= 0){
+	    area[0]++;
+	  }
+	  if(-(BOTTOM_LRF_SIDE_THRES/2) <= lrfdataxy[i].y && lrfdataxy[i].y <= (BOTTOM_LRF_SIDE_THRES/2)){
+	    area[1]++;
+	  }
+	  if(0 <= lrfdataxy[i].y && lrfdataxy[i].y <= BOTTOM_LRF_SIDE_THRES){
+	    area[2]++;
+	  }
+	  obst_cnt++;
+	}
+      }
+    }
+    /* printf("[front]obst_cnt == %d\n",obst_cnt); */
+    /* for(i=0;i<3;i++){ */
+    /*   printf("area[%d] == %d\n",i,area[i]); */
+    /* } */
+    if((area[0] > BOTTOM_LRF_THRES_CNT) && (area[1] > BOTTOM_LRF_THRES_CNT) && (area[2] > BOTTOM_LRF_THRES_CNT)){
+      return -1;
+    }
+    if((area[0] > BOTTOM_LRF_THRES_CNT) || (area[1] > BOTTOM_LRF_THRES_CNT) || (area[2] > BOTTOM_LRF_THRES_CNT)){
+      return maxof(area);	/* return will 1 or 2 or 3 */
+    }else{
+      return 0;
+    }
+  }
+}  
+
+int check_front_obstacle2(long* lrfdata, CvPoint2D32f* lrfdataxy, int lrf_data_max)
+{
+  //static CvPoint2D32f last_lrfdataxy[1080];
+  static int obst_cnt = 0;
+  static int area[3] = {0};
+  static double ave_x = 0;
+  static int ave_cnt = 0;
+  static int flag = 0;
+  static int i = 0;
+  for(i=0;i<3;i++){
+    area[i]=0;
+  }
+  obst_cnt = 0;
+  if(flag == 0){
+    for(i=420;i<660;i++){	/* -60 --- +60 */
+      //last_lrfdataxy[i] = lrfdataxy[i];
+      if(lrfdata[i] < 23 || lrfdata[i] > 60000){
+	continue;
+      }else{
+	/* if(-SIDERANGE <= lrfdataxy[i].y || lrfdataxy[i].y <= SIDERANGE){ */
+	  ave_x += lrfdataxy[i].x;
+	  ave_cnt++;
+	/* } */
+      }
+    }
+    ave_x = ave_x/ave_cnt;
+    flag = 1;
+    return 0;
+  }else{
+    for(i=420; i<660; i++){
+      if(lrfdata[i] < 23 || lrfdata[i] > 60000){
+	continue;
+      }else{
+	if(fabs(lrfdataxy[i].x - ave_x) > BOTTOM_LRF_THRES_LONG){
+	  if((420 <= i) && (i <= 540)){
+	    area[0]++;
+	  }
+	  if((480 <= i) && (i <= 600)){
+	    area[1]++;
+	  }
+	  if((540 <= i) && (i <= 660)){
+	    area[2]++;
+	  }	
+	  obst_cnt++;
+	}
+      }
+    }
+    /* printf("[front]obst_cnt == %d\n",obst_cnt); */
+    /* for(i=0;i<3;i++){ */
+    /*   printf("area[%d] == %d\n",i,area[i]); */
+    /* } */
+    if((area[0] > BOTTOM_LRF_THRES_CNT) && (area[1] > BOTTOM_LRF_THRES_CNT) && (area[2] > BOTTOM_LRF_THRES_CNT)){
+      return -1;
+    }
+    if((area[0] > BOTTOM_LRF_THRES_CNT) || (area[1] > BOTTOM_LRF_THRES_CNT) || (area[2] > BOTTOM_LRF_THRES_CNT)){
+      return maxof(area);	/* return will 1 or 2 or 3 */
+    }else{
+      return 0;
+    }
+  }
+}
+
+int check_back_obstacle(long* lrfdata, CvPoint2D32f* lrfdataxy, int lrf_data_max)
+{
+  static double lrfdatax_temp_one[1080];
+  static double lrfdatax_temp_two[1080];
+  static double calc_result = 0.0;
+  static int check_temp_one[1080] = {0};
+  static int check_temp_two[1080] = {0};
+  static int obst_cnt = 0;
+  static int person = 0;
+  static int flag = 0;
+  static int i = 0;
+
+  obst_cnt = 0;
+  for(i=181;i<899;i++){
+    if(lrfdata[i] < 23 || lrfdata[i] > 80000){
+      continue;
+    }else{
+      if(-REAR_SIDERANGE <= lrfdataxy[i].y && lrfdataxy[i].y <= REAR_SIDERANGE){
+	if(lrfdataxy[i].x <= REAR_DANGERRANGE_SHORT 
+	   || REAR_DANGERRANGE_LONG <= lrfdataxy[i].x){
+	  obst_cnt++;
+	}
+      }
+    }
+  }
+  if(obst_cnt > 50){
+    printf("yabai\n");
+    return -1;
+  }else{
+    obst_cnt = 0;
+  }
+  if(flag == 0){
+    for(i=0;i<1080;i++){
+      if(lrfdata[i] < 23 || lrfdata[i] > 80000){
+	check_temp_one[i] = -1;
+       	check_temp_two[i] = -1;
+	continue;
+      }else{
+	lrfdatax_temp_one[i] = lrfdataxy[i].x;
+      }
+    }
+    flag = 1;
+    return 0;
+  }else if(flag == 1){
+    for(i=0;i<1080;i++){
+      if(lrfdata[i] < 23 || lrfdata[i] > 80000){
+  	check_temp_two[i] = -1;
+  	continue;
+      }else{
+  	if(check_temp_one[i] == -1){
+  	  continue;
+  	}else{
+  	  lrfdatax_temp_two[i] = lrfdataxy[i].x;
+  	}
+      }
+    }
+    flag = 2;
+    return 0;
+  }else{
+    for(i=360; i<720; i++){
+      if(lrfdata[i] < 23 || lrfdata[i] > 80000){
+	continue;
+      }else{
+	if(check_temp_two[i] != -1){
+	  calc_result = lrfdatax_temp_two[i] - lrfdataxy[i].x;
+	  if(REAR_LRF_THRES_LONG < fabs(calc_result)){
+	    obst_cnt++;
+	    if(REAR_LRF_THRES_PERSON_LONG < calc_result) person++;
+	    if(check_temp_one[i] != -1){
+	      calc_result = lrfdatax_temp_one[i] - lrfdatax_temp_two[i];
+	      if(REAR_LRF_THRES_LONG < fabs(calc_result)){
+		obst_cnt++;
+		if(REAR_LRF_THRES_PERSON_LONG < calc_result) person++;
+	      }
+	    }
+	  }
+	}
+      }
+    }
+    flag = 0;
+    //printf("obstacle_count == %d\n",obst_cnt);
+    //printf("person_count == %d\n",person);
+    if(obst_cnt > REAR_LRF_THRES_CNT){
+      if((obst_cnt - person) < REAR_LRF_THRES_PERSON_CNT){
+	return 1;
+      }else{
+	return 2;
+      }
+    }else{
+      return 0;
+    }
+  }
+}
+
+int check_back_new(long* lrfdata, CvPoint2D32f* lrfdataxy, int lrf_data_max)
+{
+  static double dist_to_gnd[1080];
+  static double dist_avg = 0.0;
+  static int avg_cnt = 0;
+  static int read_flag = 0;
+  static int danger_cnt = 0;
+  static int person = 0;
+  static int i = 0;
+
+  danger_cnt = 0;
+  for(i=180;i<900;i++){
+    if(lrfdata[i] < 23 || lrfdata[i] > 80000){
+      continue;
+    }else{
+      if(-REAR_SIDERANGE <= lrfdataxy[i].y && lrfdataxy[i].y <= REAR_SIDERANGE){
+	if(lrfdataxy[i].x <= REAR_DANGERRANGE_SHORT 
+	   || REAR_DANGERRANGE_LONG <= lrfdataxy[i].x){
+	  danger_cnt++;
+	}
+      }
+    }
+  }
+  if(danger_cnt > 100){
+    printf("yabai\n");
+    return -1;
+  }else{
+    ;
+  }
+  /* if(read_flag < 2){ */
+  /*   for(i=300;i<780;i++){ */
+  /*     if(lrfdata[i] < 23 || lrfdata[i] > 60000){ */
+  /* 	continue; */
+  /*     }else{ */
+  /* 	if(dist_to_gnd[i] < lrfdataxy[i].x){ */
+  /* 	  dist_to_gnd[i] = lrfdataxy[i].x; */
+  /* 	  dist_avg += lrfdataxy[i].x; */
+  /* 	  avg_cnt++; */
+  /* 	} */
+  /*     } */
+  /*     read_flag++; */
+  /*     return 0; */
+  /*   }else{ */
+  /*     dist_avg = dist_avg / avg_cnt; */
+  /*     for(i=300;i<780;i++){ */
+  /* 	if(dist_to_gnd[i] < 23 && 60000 < dist_to_gnd){ */
+  /* 	  dist_to_gnd[i] = 1.0; */
+  /* 	}else{ */
+  /* 	  if(dist_to_gnd[i] < lrfdataxy[i].x){ */
+  /* 	    dist_to_gnd[i] = lrfdataxy[i].x; */
+  /* 	  } */
+  /* 	}     */
+  /*     } */
+  /*   } */
+  /* } */
+  return 0;
+}

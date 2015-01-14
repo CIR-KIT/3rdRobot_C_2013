@@ -1,0 +1,269 @@
+
+iMCs_series/imcs_set.c,46
+void set_imcs03(4,46
+void set_imcs01(28,720
+
+robot.c,464
+#define GPS2,19
+#define SEQUENCE	3,31
+#define LRF4,75
+#define ETHERLRF5,87
+#define SPMOTOR 6,104
+#define ODOMETORY 7,164
+#define IMCS039,229
+#define IMCS0110,244
+#define debug11,259
+#define FORWARD 13,274
+#define BACK 14,292
+#define STOP 15,308
+handler(18,336
+GPSthread(41,885
+Sequencethread(80,2039
+SplitGPSDatathread(118,3168
+LRFthread(226,6860
+Serverthread(289,8785
+FrontSPmotorthread(332,10202
+Odometorythread(405,12448
+int main(505,15866
+
+robot.h,1913
+static pthread_mutex_t gps_data_mtx 59,1395
+static pthread_mutex_t now_gps_data_mtx 60,1460
+static pthread_mutex_t lrf_data_mtx[lrf_data_mtx61,1529
+static pthread_mutex_t input_angle_mtx 64,1667
+static pthread_mutex_t desire_angle_mtx 65,1735
+static pthread_mutex_t rd_cnt_mtx 66,1804
+static pthread_mutex_t pthread_flag_mtx 67,1867
+static pthread_mutex_t imcs01_mtx 68,1936
+static pthread_mutex_t motionflag_mtx 69,1999
+static pthread_mutex_t rear_enc_mtx 70,2066
+  bool lrf;74,2158
+  bool gps;75,2170
+  bool sequence;76,2182
+  bool odometory;77,2199
+}Pthread_Flag;Pthread_Flag78,2217
+#define ENCMODE 80,2233
+#define GPSMODE 81,2251
+int quit_flag 84,2293
+Pthread_Flag pthread_flag;85,2312
+double desire_angle 86,2339
+int  gps_log_num 87,2364
+int motionflag 88,2386
+int nextTP 89,2406
+char gps_buf[gps_buf91,2436
+GPS_Data TRGdata[TRGdata92,2476
+GPS_Data NowGdata;93,2499
+CvPoint2D32f WORLD_0 94,2518
+double* value;95,2549
+urg_t urg[urg97,2578
+int lrf_data_max[lrf_data_max98,2601
+int lrf_data_max_cpy[lrf_data_max_cpy99,2631
+long** lrf_data;100,2665
+CvPoint2D32f** lrf_data_xy;101,2682
+long** lrf_data_cpy;102,2710
+CvPoint2D32f** lrf_data_xy_cpy;103,2731
+const char* lrf_device[lrf_device104,2763
+double RD_cnt 106,2843
+double rear_enc 107,2863
+double integral_enc_meter 108,2884
+GPS_Data odo_state;109,2915
+const double machineL 110,2935
+double velocity 111,2972
+double w_k 112,2993
+int input_angle 114,3028
+const char *imcs03 imcs03117,3067
+int fd_imcs03 118,3101
+struct uddr cmd03_uddr;119,3120
+struct udr cmd03_udr;120,3144
+struct udata buf03;121,3166
+const char *imcs01 imcs01123,3203
+struct uin buf01;124,3239
+int fd_imcs01 125,3257
+struct uout cmd01_uout;126,3276
+struct ccmd cmd01_ccmd;127,3300
+int serv_sock[serv_sock129,3341
+int clnt_sock[clnt_sock130,3368
+struct sockaddr_in ClntAddr[ClntAddr131,3395
+lrf_cmd lrf_cmd_data;132,3436
+
+Encoder/encoder.c,46
+int rotate_dir(4,44
+int rotate_dir_2(14,210
+
+Encoder/encoder.h,34
+#define CW 1,0
+#define CCW 2,13
+
+Encoder/hexa_to_binary.c,26
+void hexa_to_binary(5,61
+
+InputCheck/inputcheck.c,64
+int getnschar(8,364
+int kakunin(22,828
+int flag_check(35,990
+
+Motor/motor_cntl.c,56
+void forward(4,67
+void stop(29,742
+void back(43,1079
+
+GPS/gps.h,648
+#define _GPS2,19
+#define RESET_DIST 4,33
+#define PI 6,55
+#define GPS_DEVICE 7,79
+#define GPS_ARRAY_NUM 8,113
+#define GPGGATIME 9,138
+#define GPGGALA 10,158
+#define GPGGALO 11,176
+#define GPGGAHDOP 12,194
+#define GPGGASATELITES 13,214
+#define GPGGAQUALITY 14,239
+#define MOVINGAVERAGENUM 15,262
+  double time;19,308
+  int status;20,339
+  double la;21,385
+  double lo;22,417
+  CvPoint2D32f pt;23,450
+  double hdop;24,509
+  int sate;25,574
+  int qua;26,639
+  double r;27,762
+  double dir;28,774
+  int nowpoint;29,788
+}GPS_Data;GPS_Data30,804
+const char GPS_LOG_DATA[GPS_LOG_DATA32,816
+const char delimiter[delimiter33,882
+
+GPS/_gps.h,577
+#define _GPS_2,20
+#define CIRCLE_RADIUS 36,810
+#define TARGET_DOMAIN 37,834
+#define HDOP 38,865
+#define LA_0 39,881
+#define LO_0 40,899
+#define PI 41,918
+int GPS_arg 43,943
+int CharCount=44,960
+int receive_flag=45,1028
+int convert_flag[convert_flag46,1073
+int GPSoutput=47,1094
+int NofGPSdata=48,1155
+int pointx=49,1204
+char T[T51,1233
+char S;52,1267
+char La[La53,1316
+char Lo[Lo54,1384
+char Deg[Deg55,1451
+char Vel[Vel56,1465
+char henkaku[henkaku57,1479
+char henni[henni58,1497
+char N[N59,1513
+char HDop[HDop63,1569
+double dis_point;65,1585
+
+GPS/gps.c,304
+CvPoint2D32f GPS2m(6,173
+double vlum_convertK(95,3883
+int set_GTargetGPS(111,4233
+int SplitString(155,5587
+double calc_around_pi(181,6085
+double kit_map(192,6257
+int ChangeTargetPoint(206,6643
+int ChangeTargetPoint2(247,7759
+double MovingDirectionAverage(277,8609
+double average_angle(327,9834
+
+LRF/_lrf.h,19
+#define PI 10,260
+
+LRF/lrf.c,353
+int radian_to_step(4,36
+double step_to_radian(19,391
+int check_lrf_thres(33,653
+int find_obstacle(67,1442
+int find_obstacle2(91,2269
+double obstacle_avoidance(120,3322
+void swap(198,5694
+void sort_by_angleABS(203,5782
+double obstacle_avoidance2(219,6056
+int maxof(306,8728
+int check_front_obstacle(323,8970
+int check_back_obstacle(389,10934
+
+LRF/lrf.h,1032
+#define LRF_HEAD2,17
+#define FIRST_LRF_RANGE 3,34
+#define LAST_LRF_RANGE 4,62
+#define NUM_OF_LRF 5,89
+#define MAXRANGE 6,110
+#define SIDERANGE 7,132
+#define SIDELIMITRANGE 8,154
+#define LIMITMAXRANGE 9,181
+#define COSINETHRESHOLD 10,208
+#define LRF_FRONT_TOP 11,237
+#define LRF_FRONT_BOTTOM 12,261
+#define LRF_REAR 13,288
+#define BOTTOM_LRF_THRES_CNT 14,307
+#define BOTTOM_LRF_THRES_LONG 15,339
+#define BOTTOM_LRF_SIDE_THRES 16,372
+#define REAR_SIDERANGE 17,406
+#define REAR_DANGERRANGE_SHORT 18,433
+#define REAR_DANGERRANGE_LONG 19,468
+#define REAR_LRF_THRES_CNT 20,503
+#define REAR_LRF_THRES_LONG 21,534
+#define REAR_LRF_THRES_PERSON_LONG 22,565
+#define REAR_LRF_THRES_PERSON_CNT 23,604
+const long connect_baudrate 26,675
+const char connect_address[connect_address27,713
+const long connect_port 28,760
+  int cnt;31,810
+  int first_step;32,821
+  int last_step;33,839
+  double first_range;34,856
+  double last_range;35,878
+  double angle;36,899
+  double angleABS;37,915
+}free_area;free_area38,934
+
+TCP_IP/Server/_server.h,118
+#define MAXPENDING 9,341
+const unsigned short ServPort[ServPort12,484
+struct sockaddr_in ServAddr[ServAddr13,545
+
+TCP_IP/Server/server.c,108
+void tcp_retry(3,24
+void tcp_error(17,544
+int server_setup(32,1065
+int thf_server_communication(62,1999
+
+TCP_IP/Server/server.h,303
+#define NUM_OF_TCP 1,0
+  int use;4,38
+  int area_number;5,93
+  int plate;6,128
+  int human;7,168
+  int  num_of_plate;8,208
+  int  num_of_human;9,255
+  int* plate_dir;10,302
+  int* human_dir;11,320
+} thf_cmd;12,338
+  long lrf_data_max;15,366
+  long lrf_data[lrf_data16,387
+} lrf_cmd;17,410
+
+Motor/_motor_cntl.h,0
+
+Motor/motor_cntl.h,0
+
+Sequence/sequence.c,0
+
+InputCheck/inputcheck.h,0
+
+InputCheck/_inputcheck.h,0
+
+Encoder/_encoder.h,0
+
+iMCs_series/_imcs_set.h,0
+
+iMCs_series/imcs_set.h,0

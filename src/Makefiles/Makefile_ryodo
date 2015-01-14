@@ -1,0 +1,58 @@
+#==============================================================================
+#  Date   : 2013/09/09
+#  Author : Ryodo Tanaka
+#==============================================================================
+
+#マクロ定義
+CC 		= g++
+CXX 		= g++
+LRF_INC 	= -I/usr/local/include/urg_c
+LRF_LIB 	= -lurg_c
+OPENCV_INC	= -I/usr/local/include/opencv2 -I/usr/local/include/opencv -I/usr/local/include/
+OPENCV_LIB	= -L/usr/local/lib -lopencv_highgui -lopencv_calib3d -lopencv_contrib -lopencv_core -lopencv_features2d -lopencv_flann -lopencv_gpu -lopencv_imgproc -lopencv_legacy -lopencv_ml -lopencv_nonfree -lopencv_objdetect -lopencv_photo -lopencv_stitching -lopencv_superres -lopencv_ts -lopencv_video -lopencv_videostab
+CFLAGS		= $(OPENCV_INC) $(LRF_INC)
+CPPFLAGS	= $(CFLAGS)
+LDLIBS		= $(OPENCV_LIB) $(LRF_LIB) -lm -pthread
+.PHONY : clean
+
+#===============================================================================
+#  何かソースを更新したら...
+#
+#  1. VPATH にそのソースの置いてあるディレクトリの相対パスを追加する。
+#     追加するときは : をつけて追加すること。
+#
+#  2. SUB_SRC に追加したソースの.cファイルを追加する。
+#     追加するときはスペースを開けて追加すること。
+#  
+#  以上が、ソースを追加した時の使い方である。
+#  デバッグをしたい時は DEBUG のコメントアウトをとる。
+#  オプションを付けたい時は OPTION のコメントアウトをとる。
+#  どちらも何か追加したければ、スペースを開けて追加すること。
+#===============================================================================
+PROG		= robot
+
+#OPTION		= -Wall
+#DEBUG		= -g -O0 
+
+VPATH		= ./GPS:./InputCheck:./Encoder
+
+MAIN_SRC	= robot.c
+SUB_SRC		= gps.c inputcheck.c encoder.c
+
+SRCS		= $(MAIN_SRC) $(SUB_SRC)  
+OBJS		= $(SRCS:%.c=%.o)
+HEADS		= $(SRCS:%.c=%.h) $(SUB_SRC:%.c=_%.h)
+
+all: $(PROG) $(%.o) $(PROG).o
+
+%.o : %.c %.h _%.h
+	$(CC) -c $(OPTION) $(DEBUG) $< $(CFLAGS) $(LDLIBS)
+
+$(PROG).o : $(PROG).c $(PROG).h
+	$(CC) -c $(OPTION) $(DEBUG) $< $(CFLAGS) $(LDLIBS)
+
+$(PROG) : $(OBJS) $(HEADS)
+	$(CC) -o $@ $(OPTION) $(DEBUG) $(OBJS) $(CFLAGS) $(LDLIBS)
+
+clean : 
+	rm $(OBJS)

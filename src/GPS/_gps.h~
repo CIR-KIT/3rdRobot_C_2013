@@ -1,0 +1,114 @@
+#if !defined(_GPS_)
+#define _GPS_
+///////////////////////////////////////////////////////////////
+// ************** GPS heada file *****************************
+///////////////////////////////////////////////////////////////
+/*===========
+   include
+============*/
+// Standard
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <math.h>
+#include <termios.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <string.h>
+#include <assert.h>
+#include <float.h>
+#include <limits.h>
+#include <time.h>
+#include <ctype.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <errno.h>
+#include <sys/time.h>
+// OpenCV 2.3.1
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/video/tracking.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/objdetect/objdetect.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
+#define GPS_BAUDRATE  B19200
+#define GPS_DEVICE    "/dev/ttyUSB0"
+#define CONVERT_DATA  "convert_data.txt"
+#define CIRCLE_RADIUS 2
+#define TARGET_DOMAIN 0.000003
+#define HDOP 4 
+#define LA_0 36.0
+#define LO_0 139.0
+#define PI 3.1415926535
+FILE *fd2, *fd3, *fd4;
+int GPS_arg;
+int CharCount=0;               	//GPSからの読み込み文字数
+int receive_flag=0;		//受信確認フラグ
+int convert_flag[2];
+int GPSoutput=0;               //ファイル出力フラグ
+int NofGPSdata=0;              //GPSデータ数
+int pointx=300, pointy=200;
+
+char T[10];  //生データ時間
+char S;      //生データ有効無効フラグ
+char La[12]; //緯度 2文字が[度] 後の部分の単位は[分]
+char Lo[12];//経度 3文字が[度] 後の部分の単位は[分]
+char Deg[12];
+char Vel[12];
+char henkaku[12];
+char henni[12];
+char N[10];
+//char V[10];
+//char E[10];
+//char UTC[12];
+char HDop[10];
+
+double dis_point;
+
+/* typedef struct  */
+/* { */
+/*   int time[3];		//測定時間 */
+/*   int status;	        //有効確認フラグ */
+/*   double la;		//緯度 latitude */
+/*   double lo;		//経度 longitude */
+/*   CvPoint2D32f pt; */
+/*   double hdop; */
+/*   int sate; */
+/*   double r; */
+/* }GPS_Data; */
+/* GPS_Data GPSdata; */
+/* GPS_Data TRGdata[75]; */
+/* GPS_Data GPSdata_for_log; */
+
+typedef struct
+{
+  double la; //緯度
+  double lo; //経度
+  double x;
+  double y;
+}GPoint;
+GPoint Target_Data[75];
+
+// GPS map 
+int map[460][473];
+const char map_csv[]="./map/kitmap2W.CSV";
+
+IplImage *gps_img=0;
+int gps_img_w=375; 
+int gps_img_h=299;
+const char map_fig[]="./map/kitmap_n.jpg";
+double map_dr_lo=130.842494;
+double map_ul_lo=130.838485;
+double map_ul_la=33.895982;
+double map_dr_la=33.893326;
+
+const float alpha=0.3;     //081104 移動平均パラメータ
+const char gps_data_log[]="gps_data.txt";
+
+#endif

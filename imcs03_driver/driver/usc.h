@@ -1,0 +1,21 @@
+#ifndef __USC_H__
+#define __USC_H__
+
+/* IOCTL用命令定義 */
+#define USC_GET_VENDOR 1
+#define USC_GET_PRODUCT 2
+#define USC_REQUEST_READ 3
+#define USC_CONTINUOUS_READ 4
+#define USC_DR_SET 5
+#define USC_DDR_SET 6
+#define USC_GET_READ_STATUS 7
+#define USC_GET_WRITE_STATUS 8
+#define USC_BUFREAD 9
+#define USC_WAITREAD 10
+
+#define USC_STATUS_READ_REQUEST 0
+#define USC_STATUS_READ_CONTINUOUS 1
+#define USC_STATUS_WRITE_COUNTER 2
+#define USC_STATUS_WRITE_DESIRE 3
+
+#endif

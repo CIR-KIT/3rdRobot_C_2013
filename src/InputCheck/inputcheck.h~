@@ -1,0 +1,2 @@
+int getnschar(void);
+int kakunin(void);
